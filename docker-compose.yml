@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  # Banco de dados PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: triloga_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: triloga_admin
+      POSTGRES_PASSWORD: Tr1l0g@2024!Secure
+      POSTGRES_DB: triloga_empresarial
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U triloga_admin -d triloga_empresarial"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - triloga_network
+
+  # Redis para cache e sessões
+  redis:
+    image: redis:7-alpine
+    container_name: triloga_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - triloga_network
+
+  # Backend Node.js
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: triloga_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      
+      # Database
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: triloga_empresarial
+      DB_USER: triloga_admin
+      DB_PASSWORD: Tr1l0g@2024!Secure
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      # JWT
+      JWT_SECRET: triloga_jwt_secret_key_2024_muito_segura_enterprise
+      JWT_EXPIRES_IN: 24h
+      
+      # App
+      APP_NAME: "SFERA TI Empresarial"
+      APP_URL: http://localhost
+      
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - uploads_data:/app/uploads
+    networks:
+      - triloga_network
+
+  # Frontend React
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost/api
+        REACT_APP_NAME: "SFERA TI Empresarial"
+    container_name: triloga_frontend
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    networks:
+      - triloga_network
+
+  # Nginx como proxy reverso
+  nginx:
+    image: nginx:alpine
+    container_name: triloga_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - triloga_network
+
+networks:
+  triloga_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
