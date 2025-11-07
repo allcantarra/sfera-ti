@@ -9,7 +9,9 @@ import {
   Celulares, 
   Links, 
   EquipamentosRede, 
-  Tickets 
+  Tickets,
+  Fornecedores,  // NOVO
+  CFTV           // NOVO
 } from './Components';
 
 // API_URL sempre relativo - sem porta
@@ -129,6 +131,8 @@ function App() {
           {currentPage === 'celulares' && <Celulares />}
           {currentPage === 'links' && <Links />}
           {currentPage === 'equipamentos-rede' && <EquipamentosRede />}
+          {currentPage === 'fornecedores' && <Fornecedores />}
+          {currentPage === 'cftv' && <CFTV />}
           {currentPage === 'tickets' && <Tickets />}
         </div>
       </div>
@@ -137,7 +141,7 @@ function App() {
 }
 
 // =============================================
-// COMPONENTE: Sidebar
+// COMPONENTE: Sidebar - ATUALIZADA
 // =============================================
 function Sidebar({ currentPage, setCurrentPage, user, onLogout }) {
   const menuItems = [
@@ -149,6 +153,8 @@ function Sidebar({ currentPage, setCurrentPage, user, onLogout }) {
     { id: 'celulares', icon: '📱', label: 'Celulares' },
     { id: 'links', icon: '🌐', label: 'Internet' },
     { id: 'equipamentos-rede', icon: '🔌', label: 'Rede' },
+    { id: 'fornecedores', icon: '🏭', label: 'Fornecedores' },  // NOVO
+    { id: 'cftv', icon: '📹', label: 'CFTV' },                   // NOVO
     { id: 'tickets', icon: '🎫', label: 'Tickets' },
   ];
 
@@ -178,7 +184,7 @@ function Sidebar({ currentPage, setCurrentPage, user, onLogout }) {
 }
 
 // =============================================
-// COMPONENTE: Header
+// COMPONENTE: Header - ATUALIZADA
 // =============================================
 function Header({ user, currentPage }) {
   const titles = {
@@ -190,6 +196,8 @@ function Header({ user, currentPage }) {
     celulares: 'Celulares',
     links: 'Links de Internet',
     'equipamentos-rede': 'Equipamentos de Rede',
+    fornecedores: 'Fornecedores',              // NOVO
+    cftv: 'CFTV - DVR/NVR',                    // NOVO
     tickets: 'Tickets de Suporte',
     'loja-detalhes': 'Detalhes da Loja'
   };
@@ -206,7 +214,7 @@ function Header({ user, currentPage }) {
 }
 
 // =============================================
-// COMPONENTE: Dashboard
+// COMPONENTE: Dashboard - ATUALIZADO
 // =============================================
 function Dashboard({ setSelectedLoja, setCurrentPage }) {
   const [stats, setStats] = useState(null);
@@ -268,6 +276,20 @@ function Dashboard({ setSelectedLoja, setCurrentPage }) {
             <p>Links Internet</p>
           </div>
         </div>
+        <div className="stat-card">
+          <div className="stat-icon">📹</div>
+          <div className="stat-content">
+            <h3>{stats.total_cftv || 0}</h3>
+            <p>CFTV</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">🏭</div>
+          <div className="stat-content">
+            <h3>{stats.total_fornecedores || 0}</h3>
+            <p>Fornecedores</p>
+          </div>
+        </div>
         <div className="stat-card alert">
           <div className="stat-icon">🎫</div>
           <div className="stat-content">
@@ -287,6 +309,9 @@ function Dashboard({ setSelectedLoja, setCurrentPage }) {
             }}>
               <h3>{loja.nome}</h3>
               <p className="loja-codigo">{loja.codigo}</p>
+              {loja.tipo_franquia && (
+                <p className="loja-franquia">🏢 {loja.tipo_franquia}</p>
+              )}
               <p className="loja-cidade">📍 {loja.cidade}</p>
               <p className="loja-gerente">👤 {loja.gerente_nome}</p>
               <div className="loja-stats">
@@ -309,14 +334,15 @@ function Dashboard({ setSelectedLoja, setCurrentPage }) {
 }
 
 // =============================================
-// COMPONENTE: Lojas
+// COMPONENTE: Lojas - ATUALIZADA COM FILTRO DE FRANQUIA
 // =============================================
 function Lojas() {
   const [lojas, setLojas] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingLoja, setEditingLoja] = useState(null);
+  const [tipoFranquiaFilter, setTipoFranquiaFilter] = useState('');
   const [formData, setFormData] = useState({
-    nome: '', codigo: '', cnpj: '', inscricao_estadual: '', razao_social: '',
+    nome: '', codigo: '', tipo_franquia: '', cnpj: '', inscricao_estadual: '', razao_social: '',
     endereco: '', cidade: '', estado: '', cep: '', telefone: '', email: '',
     gerente_nome: '', gerente_telefone: '', gerente_email: '', 
     data_inauguracao: '', observacoes: '', ativo: true
@@ -324,11 +350,12 @@ function Lojas() {
 
   useEffect(() => {
     loadLojas();
-  }, []);
+  }, [tipoFranquiaFilter]);
 
   const loadLojas = async () => {
     try {
-      const response = await axios.get(`${API_URL}/lojas`);
+      const params = tipoFranquiaFilter ? `?tipo_franquia=${tipoFranquiaFilter}` : '';
+      const response = await axios.get(`${API_URL}/lojas${params}`);
       setLojas(response.data);
     } catch (err) {
       console.error('Erro ao carregar lojas:', err);
@@ -369,7 +396,7 @@ function Lojas() {
 
   const resetForm = () => {
     setFormData({
-      nome: '', codigo: '', cnpj: '', inscricao_estadual: '', razao_social: '',
+      nome: '', codigo: '', tipo_franquia: '', cnpj: '', inscricao_estadual: '', razao_social: '',
       endereco: '', cidade: '', estado: '', cep: '', telefone: '', email: '',
       gerente_nome: '', gerente_telefone: '', gerente_email: '',
       data_inauguracao: '', observacoes: '', ativo: true
@@ -378,13 +405,27 @@ function Lojas() {
     setShowForm(false);
   };
 
+  const franchiseTypes = ['Escritório', 'Levis', 'Hering', 'Boticário VD', 'Boticário Loja', 'Boticário Híbrida'];
+
   return (
     <div className="page-container">
       <div className="page-header">
         <h2>Gerenciar Lojas</h2>
-        <button className="btn-primary" onClick={() => setShowForm(true)}>
-          ➕ Nova Loja
-        </button>
+        <div className="header-controls">
+          <select 
+            value={tipoFranquiaFilter} 
+            onChange={(e) => setTipoFranquiaFilter(e.target.value)}
+            className="loja-filter"
+          >
+            <option value="">Todas as Franquias</option>
+            {franchiseTypes.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+          <button className="btn-primary" onClick={() => setShowForm(true)}>
+            ➕ Nova Loja
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -408,6 +449,16 @@ function Lojas() {
                   onChange={(e) => setFormData({...formData, codigo: e.target.value})}
                   required
                 />
+                <select
+                  value={formData.tipo_franquia}
+                  onChange={(e) => setFormData({...formData, tipo_franquia: e.target.value})}
+                  required
+                >
+                  <option value="">Selecione o Tipo de Franquia</option>
+                  {franchiseTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   placeholder="CNPJ"
@@ -538,6 +589,7 @@ function Lojas() {
             <tr>
               <th>Código</th>
               <th>Nome</th>
+              <th>Franquia</th>
               <th>Cidade/UF</th>
               <th>Gerente</th>
               <th>Telefone</th>
@@ -550,6 +602,7 @@ function Lojas() {
               <tr key={loja.id}>
                 <td><strong>{loja.codigo}</strong></td>
                 <td>{loja.nome}</td>
+                <td><span className="badge">{loja.tipo_franquia || 'N/A'}</span></td>
                 <td>{loja.cidade}/{loja.estado}</td>
                 <td>{loja.gerente_nome}</td>
                 <td>{loja.telefone}</td>
@@ -570,9 +623,5 @@ function Lojas() {
     </div>
   );
 }
-
-// =============================================
-// Outros componentes importados de Components.js
-// =============================================
 
 export default App;

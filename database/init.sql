@@ -1,12 +1,12 @@
 -- =============================================
 -- SFERA TI - Sistema de Controle de Franquias
--- Banco de Dados PostgreSQL
+-- Banco de Dados PostgreSQL - VERSÃO ATUALIZADA
 -- =============================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- =============================================
--- TABELA: LOJAS (Franquias SFERA)
+-- TABELA: LOJAS (Franquias SFERA) - ATUALIZADA COM TIPO DE FRANQUIA
 -- =============================================
 CREATE TABLE lojas (
     id SERIAL PRIMARY KEY,
@@ -15,6 +15,9 @@ CREATE TABLE lojas (
     -- Identificação
     nome VARCHAR(255) NOT NULL,
     codigo VARCHAR(50) UNIQUE NOT NULL,
+    
+    -- NOVO: Tipo de Franquia
+    tipo_franquia VARCHAR(50) CHECK (tipo_franquia IN ('Escritório', 'Levis', 'Hering', 'Boticário VD', 'Boticário Loja', 'Boticário Híbrida')),
     
     -- Dados Legais
     cnpj VARCHAR(18) UNIQUE,
@@ -127,7 +130,7 @@ CREATE TABLE computadores (
 );
 
 -- =============================================
--- TABELA: IMPRESSORAS
+-- TABELA: IMPRESSORAS - ATUALIZADA COM PROPRIEDADE
 -- =============================================
 CREATE TABLE impressoras (
     id SERIAL PRIMARY KEY,
@@ -143,6 +146,9 @@ CREATE TABLE impressoras (
     marca VARCHAR(100),
     modelo VARCHAR(100),
     tipo VARCHAR(50) CHECK (tipo IN ('laser', 'jato_tinta', 'matricial', 'multifuncional')),
+    
+    -- NOVO: Propriedade
+    propriedade VARCHAR(20) DEFAULT 'propria' CHECK (propriedade IN ('propria', 'alugada')),
     
     -- Conexão
     ip_address VARCHAR(15),
@@ -205,7 +211,7 @@ CREATE TABLE celulares (
 );
 
 -- =============================================
--- TABELA: LINKS DE INTERNET
+-- TABELA: LINKS DE INTERNET - ATUALIZADA COM NOVOS CAMPOS
 -- =============================================
 CREATE TABLE links_internet (
     id SERIAL PRIMARY KEY,
@@ -214,6 +220,11 @@ CREATE TABLE links_internet (
     
     -- Identificação
     nome VARCHAR(255) NOT NULL,
+    cp VARCHAR(50), -- NOVO: Centro de Processamento
+    
+    -- Titular - NOVOS CAMPOS
+    titular VARCHAR(255),
+    cnpj_titular VARCHAR(18),
     
     -- Fornecedor
     operadora VARCHAR(100) NOT NULL,
@@ -226,12 +237,22 @@ CREATE TABLE links_internet (
     -- Contrato
     numero_contrato VARCHAR(100),
     valor_mensal DECIMAL(10,2),
+    valor_anual DECIMAL(10,2), -- NOVO
     dia_vencimento INTEGER,
+    data_vencimento VARCHAR(10), -- NOVO: formato DD/MM
     data_instalacao DATE,
+    
+    -- Contato
+    linha_fixa VARCHAR(20), -- NOVO
     
     -- IP
     ip_fixo VARCHAR(15),
     ip_range VARCHAR(50),
+    
+    -- Acesso - NOVOS CAMPOS
+    link_acesso TEXT,
+    login_acesso VARCHAR(255),
+    senha_acesso VARCHAR(255),
     
     -- Status
     status VARCHAR(50) DEFAULT 'ativo' CHECK (status IN ('ativo', 'suspenso', 'cancelado')),
@@ -277,6 +298,86 @@ CREATE TABLE equipamentos_rede (
     -- Status
     status VARCHAR(50) DEFAULT 'ativo' CHECK (status IN ('ativo', 'manutencao', 'inativo', 'descartado')),
     data_aquisicao DATE,
+    
+    -- Fotos
+    foto_url TEXT,
+    
+    observacoes TEXT,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================
+-- NOVA TABELA: FORNECEDORES
+-- =============================================
+CREATE TABLE fornecedores (
+    id SERIAL PRIMARY KEY,
+    uuid UUID DEFAULT uuid_generate_v4() UNIQUE NOT NULL,
+    
+    -- Identificação
+    nome VARCHAR(255) NOT NULL,
+    razao_social VARCHAR(255) NOT NULL,
+    cnpj VARCHAR(18) UNIQUE NOT NULL,
+    
+    -- Classificação
+    segmento VARCHAR(100) NOT NULL,
+    
+    -- Contato
+    telefone_comercial VARCHAR(20) NOT NULL,
+    email VARCHAR(255),
+    
+    -- Endereço
+    endereco TEXT,
+    
+    -- Online
+    portal_web TEXT,
+    
+    -- Status
+    status VARCHAR(50) DEFAULT 'ativo' CHECK (status IN ('ativo', 'inativo')),
+    
+    observacoes TEXT,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================
+-- NOVA TABELA: CFTV (DVR/NVR)
+-- =============================================
+CREATE TABLE cftv_dispositivos (
+    id SERIAL PRIMARY KEY,
+    uuid UUID DEFAULT uuid_generate_v4() UNIQUE NOT NULL,
+    loja_id INTEGER REFERENCES lojas(id) ON DELETE CASCADE,
+    
+    -- Identificação
+    cp VARCHAR(50), -- Centro de Processamento
+    
+    -- Dispositivos
+    quantidade_dispositivos INTEGER DEFAULT 1,
+    
+    -- Canais
+    total_canais INTEGER NOT NULL,
+    canais_em_uso INTEGER NOT NULL,
+    
+    -- Hardware
+    tecnologia VARCHAR(10) CHECK (tecnologia IN ('DVR', 'NVR')) NOT NULL,
+    marca VARCHAR(100) NOT NULL,
+    modelo VARCHAR(100) NOT NULL,
+    numero_serie VARCHAR(100),
+    
+    -- Rede
+    ip_address VARCHAR(15),
+    ddns VARCHAR(255),
+    porta_acesso INTEGER DEFAULT 8000,
+    
+    -- Acesso
+    usuario_acesso VARCHAR(100),
+    senha_acesso VARCHAR(100),
+    
+    -- Status
+    status VARCHAR(50) DEFAULT 'ativo' CHECK (status IN ('ativo', 'manutencao', 'inativo')),
+    data_instalacao DATE,
     
     -- Fotos
     foto_url TEXT,
@@ -339,7 +440,7 @@ CREATE TABLE softwares (
 );
 
 -- =============================================
--- TABELA: CHAMADOS/TICKETS DE SUPORTE
+-- TABELA: CHAMADOS/TICKETS DE SUPORTE - ATUALIZADA
 -- =============================================
 CREATE TABLE tickets (
     id SERIAL PRIMARY KEY,
@@ -353,7 +454,7 @@ CREATE TABLE tickets (
     titulo VARCHAR(255) NOT NULL,
     descricao TEXT,
     
-    categoria VARCHAR(50) CHECK (categoria IN ('hardware', 'software', 'rede', 'impressora', 'celular', 'outros')),
+    categoria VARCHAR(50) CHECK (categoria IN ('hardware', 'software', 'rede', 'impressora', 'celular', 'cftv', 'outros')),
     prioridade VARCHAR(20) DEFAULT 'media' CHECK (prioridade IN ('baixa', 'media', 'alta', 'urgente')),
     status VARCHAR(50) DEFAULT 'aberto' CHECK (status IN ('aberto', 'em_andamento', 'aguardando', 'resolvido', 'fechado')),
     
@@ -446,11 +547,17 @@ CREATE TABLE metricas_dashboard (
 -- =============================================
 -- ÍNDICES PARA PERFORMANCE
 -- =============================================
+CREATE INDEX idx_lojas_tipo_franquia ON lojas(tipo_franquia);
 CREATE INDEX idx_computadores_loja ON computadores(loja_id);
 CREATE INDEX idx_impressoras_loja ON impressoras(loja_id);
+CREATE INDEX idx_impressoras_propriedade ON impressoras(propriedade);
 CREATE INDEX idx_celulares_loja ON celulares(loja_id);
 CREATE INDEX idx_links_loja ON links_internet(loja_id);
 CREATE INDEX idx_equipamentos_loja ON equipamentos_rede(loja_id);
+CREATE INDEX idx_fornecedores_segmento ON fornecedores(segmento);
+CREATE INDEX idx_fornecedores_status ON fornecedores(status);
+CREATE INDEX idx_cftv_loja ON cftv_dispositivos(loja_id);
+CREATE INDEX idx_cftv_tecnologia ON cftv_dispositivos(tecnologia);
 CREATE INDEX idx_tickets_loja ON tickets(loja_id);
 CREATE INDEX idx_tickets_status ON tickets(status);
 
@@ -472,10 +579,12 @@ CREATE TRIGGER update_impressoras_updated_at BEFORE UPDATE ON impressoras FOR EA
 CREATE TRIGGER update_celulares_updated_at BEFORE UPDATE ON celulares FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_links_updated_at BEFORE UPDATE ON links_internet FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_equipamentos_updated_at BEFORE UPDATE ON equipamentos_rede FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_fornecedores_updated_at BEFORE UPDATE ON fornecedores FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_cftv_updated_at BEFORE UPDATE ON cftv_dispositivos FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tickets_updated_at BEFORE UPDATE ON tickets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =============================================
--- VIEWS ÚTEIS
+-- VIEWS ÚTEIS - ATUALIZADAS
 -- =============================================
 
 -- View: Resumo de cada loja
@@ -484,6 +593,7 @@ SELECT
     l.id,
     l.nome,
     l.codigo,
+    l.tipo_franquia,
     l.cidade,
     l.gerente_nome,
     
@@ -492,6 +602,7 @@ SELECT
     COUNT(DISTINCT i.id) as total_impressoras,
     COUNT(DISTINCT cel.id) as total_celulares,
     COUNT(DISTINCT li.id) as total_links,
+    COUNT(DISTINCT cf.id) as total_cftv,
     COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('aberto', 'em_andamento')) as tickets_abertos,
     
     l.ativo
@@ -500,6 +611,7 @@ LEFT JOIN computadores c ON l.id = c.loja_id AND c.status = 'ativo'
 LEFT JOIN impressoras i ON l.id = i.loja_id AND i.status = 'ativo'
 LEFT JOIN celulares cel ON l.id = cel.loja_id AND cel.status = 'ativo'
 LEFT JOIN links_internet li ON l.id = li.loja_id AND li.status = 'ativo'
+LEFT JOIN cftv_dispositivos cf ON l.id = cf.loja_id AND cf.status = 'ativo'
 LEFT JOIN tickets t ON l.id = t.loja_id
 GROUP BY l.id;
 
@@ -558,11 +670,11 @@ WHERE cel.id IS NOT NULL;
 -- Usuário Admin
 INSERT INTO usuarios (nome, email, senha, tipo) 
 VALUES ('Administrador SFERA', 'admin@sfera.com.br', '$2b$10$8Hs3qV9z3X6T9.K9mNt0KO0RVqE5FYqO8K6kNxLX5VYqN8KqX5K6K', 'admin');
--- Senha: admin123 (você deve trocar depois)
+-- Senha: admin123
 
 -- Loja Exemplo
-INSERT INTO lojas (nome, codigo, cnpj, cidade, estado, gerente_nome, telefone) 
-VALUES ('SFERA - Loja Matriz', 'SF001', '00.000.000/0001-00', 'São Paulo', 'SP', 'João Silva', '(11) 98765-4321');
+INSERT INTO lojas (nome, codigo, tipo_franquia, cnpj, cidade, estado, gerente_nome, telefone) 
+VALUES ('SFERA - Loja Matriz', 'SF001', 'Escritório', '00.000.000/0001-00', 'São Paulo', 'SP', 'João Silva', '(11) 98765-4321');
 
 -- =============================================
 -- FUNÇÃO: Gerar número de ticket automático

@@ -149,7 +149,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // =============================================
-// ROTAS DE DASHBOARD
+// ROTAS DE DASHBOARD - ATUALIZADA
 // =============================================
 
 app.get('/api/dashboard/geral', authenticate, async (req, res) => {
@@ -161,6 +161,8 @@ app.get('/api/dashboard/geral', authenticate, async (req, res) => {
                 (SELECT COUNT(*) FROM impressoras WHERE status = 'ativo') as total_impressoras,
                 (SELECT COUNT(*) FROM celulares WHERE status = 'ativo') as total_celulares,
                 (SELECT COUNT(*) FROM links_internet WHERE status = 'ativo') as total_links,
+                (SELECT COUNT(*) FROM cftv_dispositivos WHERE status = 'ativo') as total_cftv,
+                (SELECT COUNT(*) FROM fornecedores WHERE status = 'ativo') as total_fornecedores,
                 (SELECT COUNT(*) FROM tickets WHERE status IN ('aberto', 'em_andamento')) as tickets_abertos
         `);
         
@@ -206,6 +208,11 @@ app.get('/api/dashboard/loja/:id', authenticate, async (req, res) => {
             'SELECT * FROM equipamentos_rede WHERE loja_id = $1 ORDER BY tipo',
             [id]
         );
+
+        const cftv = await pool.query(
+            'SELECT * FROM cftv_dispositivos WHERE loja_id = $1 ORDER BY created_at',
+            [id]
+        );
         
         const tickets = await pool.query(
             'SELECT * FROM tickets WHERE loja_id = $1 ORDER BY data_abertura DESC LIMIT 10',
@@ -219,6 +226,7 @@ app.get('/api/dashboard/loja/:id', authenticate, async (req, res) => {
             celulares: celulares.rows,
             links: links.rows,
             equipamentos_rede: equipamentosRede.rows,
+            cftv: cftv.rows,
             tickets: tickets.rows
         });
     } catch (err) {
@@ -228,12 +236,24 @@ app.get('/api/dashboard/loja/:id', authenticate, async (req, res) => {
 });
 
 // =============================================
-// ROTAS DE LOJAS
+// ROTAS DE LOJAS - ATUALIZADA COM FILTRO DE FRANQUIA
 // =============================================
 
 app.get('/api/lojas', authenticate, async (req, res) => {
+    const { tipo_franquia } = req.query;
+    
     try {
-        const result = await pool.query('SELECT * FROM lojas ORDER BY nome');
+        let query = 'SELECT * FROM lojas';
+        let params = [];
+        
+        if (tipo_franquia && tipo_franquia !== 'all') {
+            query += ' WHERE tipo_franquia = $1';
+            params.push(tipo_franquia);
+        }
+        
+        query += ' ORDER BY nome';
+        
+        const result = await pool.query(query, params);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: 'Erro ao buscar lojas' });
@@ -250,15 +270,15 @@ app.get('/api/lojas/:id', authenticate, async (req, res) => {
 });
 
 app.post('/api/lojas', authenticate, async (req, res) => {
-    const { nome, codigo, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep, 
+    const { nome, codigo, tipo_franquia, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep, 
             telefone, email, gerente_nome, gerente_telefone, gerente_email, data_inauguracao, observacoes } = req.body;
     
     try {
         const result = await pool.query(
-            `INSERT INTO lojas (nome, codigo, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep,
+            `INSERT INTO lojas (nome, codigo, tipo_franquia, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep,
                                telefone, email, gerente_nome, gerente_telefone, gerente_email, data_inauguracao, observacoes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
-            [nome, codigo, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *`,
+            [nome, codigo, tipo_franquia, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep,
              telefone, email, gerente_nome, gerente_telefone, gerente_email, data_inauguracao, observacoes]
         );
         res.status(201).json(result.rows[0]);
@@ -270,17 +290,17 @@ app.post('/api/lojas', authenticate, async (req, res) => {
 
 app.put('/api/lojas/:id', authenticate, async (req, res) => {
     const { id } = req.params;
-    const { nome, codigo, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep,
+    const { nome, codigo, tipo_franquia, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep,
             telefone, email, gerente_nome, gerente_telefone, gerente_email, data_inauguracao, observacoes, ativo } = req.body;
     
     try {
         const result = await pool.query(
-            `UPDATE lojas SET nome = $1, codigo = $2, cnpj = $3, inscricao_estadual = $4, razao_social = $5,
-                            endereco = $6, cidade = $7, estado = $8, cep = $9, telefone = $10, email = $11,
-                            gerente_nome = $12, gerente_telefone = $13, gerente_email = $14, 
-                            data_inauguracao = $15, observacoes = $16, ativo = $17
-             WHERE id = $18 RETURNING *`,
-            [nome, codigo, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep,
+            `UPDATE lojas SET nome = $1, codigo = $2, tipo_franquia = $3, cnpj = $4, inscricao_estadual = $5, razao_social = $6,
+                            endereco = $7, cidade = $8, estado = $9, cep = $10, telefone = $11, email = $12,
+                            gerente_nome = $13, gerente_telefone = $14, gerente_email = $15, 
+                            data_inauguracao = $16, observacoes = $17, ativo = $18
+             WHERE id = $19 RETURNING *`,
+            [nome, codigo, tipo_franquia, cnpj, inscricao_estadual, razao_social, endereco, cidade, estado, cep,
              telefone, email, gerente_nome, gerente_telefone, gerente_email, data_inauguracao, observacoes, ativo, id]
         );
         res.json(result.rows[0]);
@@ -433,7 +453,7 @@ app.delete('/api/computadores/:id', authenticate, async (req, res) => {
 });
 
 // =============================================
-// ROTAS DE IMPRESSORAS (Similar aos computadores)
+// ROTAS DE IMPRESSORAS - ATUALIZADA COM PROPRIEDADE
 // =============================================
 
 app.get('/api/impressoras', authenticate, async (req, res) => {
@@ -452,18 +472,18 @@ app.get('/api/impressoras', authenticate, async (req, res) => {
 });
 
 app.post('/api/impressoras', authenticate, upload.single('foto'), async (req, res) => {
-    const { loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo, ip_address,
+    const { loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo, propriedade, ip_address,
             tipo_conexao, setor, status, data_aquisicao, observacoes } = req.body;
     
     const foto_url = req.file ? `/uploads/${req.file.filename}` : null;
     
     try {
         const result = await pool.query(
-            `INSERT INTO impressoras (loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo,
+            `INSERT INTO impressoras (loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo, propriedade,
                                      ip_address, tipo_conexao, setor, status, data_aquisicao, foto_url, observacoes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-            [loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo, ip_address,
-             tipo_conexao, setor, status, data_aquisicao, foto_url, observacoes]
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
+            [loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo, propriedade || 'propria',
+             ip_address, tipo_conexao, setor, status, data_aquisicao, foto_url, observacoes]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -474,7 +494,7 @@ app.post('/api/impressoras', authenticate, upload.single('foto'), async (req, re
 
 app.put('/api/impressoras/:id', authenticate, upload.single('foto'), async (req, res) => {
     const { id } = req.params;
-    const { loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo, ip_address,
+    const { loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo, propriedade, ip_address,
             tipo_conexao, setor, status, data_aquisicao, observacoes } = req.body;
     
     const foto_url = req.file ? `/uploads/${req.file.filename}` : req.body.foto_url;
@@ -482,10 +502,10 @@ app.put('/api/impressoras/:id', authenticate, upload.single('foto'), async (req,
     try {
         const result = await pool.query(
             `UPDATE impressoras SET loja_id = $1, nome = $2, patrimonio = $3, numero_serie = $4,
-                                   marca = $5, modelo = $6, tipo = $7, ip_address = $8, tipo_conexao = $9,
-                                   setor = $10, status = $11, data_aquisicao = $12, foto_url = $13, observacoes = $14
-             WHERE id = $15 RETURNING *`,
-            [loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo, ip_address, tipo_conexao,
+                                   marca = $5, modelo = $6, tipo = $7, propriedade = $8, ip_address = $9, tipo_conexao = $10,
+                                   setor = $11, status = $12, data_aquisicao = $13, foto_url = $14, observacoes = $15
+             WHERE id = $16 RETURNING *`,
+            [loja_id, nome, patrimonio, numero_serie, marca, modelo, tipo, propriedade, ip_address, tipo_conexao,
              setor, status, data_aquisicao, foto_url, observacoes, id]
         );
         res.json(result.rows[0]);
@@ -579,7 +599,7 @@ app.delete('/api/celulares/:id', authenticate, async (req, res) => {
 });
 
 // =============================================
-// ROTAS DE LINKS DE INTERNET
+// ROTAS DE LINKS DE INTERNET - ATUALIZADA COM NOVOS CAMPOS
 // =============================================
 
 app.get('/api/links', authenticate, async (req, res) => {
@@ -600,11 +620,14 @@ app.get('/api/links', authenticate, async (req, res) => {
 app.post('/api/links', authenticate, async (req, res) => {
     console.log('📝 Recebendo dados para criar link:', req.body);
     
-    const { loja_id, nome, operadora, tipo_conexao, velocidade_download, velocidade_upload,
-            numero_contrato, valor_mensal, dia_vencimento, data_instalacao, ip_fixo, ip_range,
-            status, principal, observacoes } = req.body;
+    const { 
+        loja_id, nome, cp, titular, cnpj_titular, operadora, tipo_conexao, 
+        velocidade_download, velocidade_upload, numero_contrato, valor_mensal, valor_anual,
+        dia_vencimento, data_vencimento, data_instalacao, linha_fixa,
+        ip_fixo, ip_range, link_acesso, login_acesso, senha_acesso,
+        status, principal, observacoes 
+    } = req.body;
     
-    // Validações básicas
     if (!loja_id || !nome || !operadora) {
         return res.status(400).json({ 
             error: 'Campos obrigatórios faltando',
@@ -614,12 +637,16 @@ app.post('/api/links', authenticate, async (req, res) => {
     
     try {
         const result = await pool.query(
-            `INSERT INTO links_internet (loja_id, nome, operadora, tipo_conexao, velocidade_download,
-                                        velocidade_upload, numero_contrato, valor_mensal, dia_vencimento,
-                                        data_instalacao, ip_fixo, ip_range, status, principal, observacoes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
-            [loja_id, nome, operadora, tipo_conexao || 'fibra', velocidade_download, velocidade_upload,
-             numero_contrato, valor_mensal, dia_vencimento, data_instalacao, ip_fixo, ip_range,
+            `INSERT INTO links_internet 
+             (loja_id, nome, cp, titular, cnpj_titular, operadora, tipo_conexao, velocidade_download,
+              velocidade_upload, numero_contrato, valor_mensal, valor_anual, dia_vencimento, data_vencimento,
+              data_instalacao, linha_fixa, ip_fixo, ip_range, link_acesso, login_acesso, senha_acesso,
+              status, principal, observacoes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24) 
+             RETURNING *`,
+            [loja_id, nome, cp, titular, cnpj_titular, operadora, tipo_conexao || 'fibra', velocidade_download,
+             velocidade_upload, numero_contrato, valor_mensal, valor_anual, dia_vencimento, data_vencimento,
+             data_instalacao, linha_fixa, ip_fixo, ip_range, link_acesso, login_acesso, senha_acesso,
              status || 'ativo', principal || false, observacoes]
         );
         
@@ -637,19 +664,27 @@ app.post('/api/links', authenticate, async (req, res) => {
 
 app.put('/api/links/:id', authenticate, async (req, res) => {
     const { id } = req.params;
-    const { loja_id, nome, operadora, tipo_conexao, velocidade_download, velocidade_upload,
-            numero_contrato, valor_mensal, dia_vencimento, data_instalacao, ip_fixo, ip_range,
-            status, principal, observacoes } = req.body;
+    const { 
+        loja_id, nome, cp, titular, cnpj_titular, operadora, tipo_conexao,
+        velocidade_download, velocidade_upload, numero_contrato, valor_mensal, valor_anual,
+        dia_vencimento, data_vencimento, data_instalacao, linha_fixa,
+        ip_fixo, ip_range, link_acesso, login_acesso, senha_acesso,
+        status, principal, observacoes 
+    } = req.body;
     
     try {
         const result = await pool.query(
-            `UPDATE links_internet SET loja_id = $1, nome = $2, operadora = $3, tipo_conexao = $4,
-                                      velocidade_download = $5, velocidade_upload = $6, numero_contrato = $7,
-                                      valor_mensal = $8, dia_vencimento = $9, data_instalacao = $10,
-                                      ip_fixo = $11, ip_range = $12, status = $13, principal = $14, observacoes = $15
-             WHERE id = $16 RETURNING *`,
-            [loja_id, nome, operadora, tipo_conexao, velocidade_download, velocidade_upload,
-             numero_contrato, valor_mensal, dia_vencimento, data_instalacao, ip_fixo, ip_range,
+            `UPDATE links_internet 
+             SET loja_id = $1, nome = $2, cp = $3, titular = $4, cnpj_titular = $5, operadora = $6, 
+                 tipo_conexao = $7, velocidade_download = $8, velocidade_upload = $9, numero_contrato = $10,
+                 valor_mensal = $11, valor_anual = $12, dia_vencimento = $13, data_vencimento = $14,
+                 data_instalacao = $15, linha_fixa = $16, ip_fixo = $17, ip_range = $18,
+                 link_acesso = $19, login_acesso = $20, senha_acesso = $21, status = $22, 
+                 principal = $23, observacoes = $24
+             WHERE id = $25 RETURNING *`,
+            [loja_id, nome, cp, titular, cnpj_titular, operadora, tipo_conexao, velocidade_download,
+             velocidade_upload, numero_contrato, valor_mensal, valor_anual, dia_vencimento, data_vencimento,
+             data_instalacao, linha_fixa, ip_fixo, ip_range, link_acesso, login_acesso, senha_acesso,
              status, principal, observacoes, id]
         );
         res.json(result.rows[0]);
@@ -743,6 +778,237 @@ app.delete('/api/equipamentos-rede/:id', authenticate, async (req, res) => {
 });
 
 // =============================================
+// NOVAS ROTAS: FORNECEDORES
+// =============================================
+
+app.get('/api/fornecedores', authenticate, async (req, res) => {
+    const { segmento, status } = req.query;
+    
+    try {
+        let query = 'SELECT * FROM fornecedores WHERE 1=1';
+        let params = [];
+        let paramIndex = 1;
+        
+        if (segmento) {
+            query += ` AND segmento = $${paramIndex}`;
+            params.push(segmento);
+            paramIndex++;
+        }
+        
+        if (status) {
+            query += ` AND status = $${paramIndex}`;
+            params.push(status);
+            paramIndex++;
+        }
+        
+        query += ' ORDER BY nome';
+        
+        const result = await pool.query(query, params);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Erro ao buscar fornecedores:', err);
+        res.status(500).json({ error: 'Erro ao buscar fornecedores' });
+    }
+});
+
+app.get('/api/fornecedores/:id', authenticate, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM fornecedores WHERE id = $1', [req.params.id]);
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar fornecedor' });
+    }
+});
+
+app.post('/api/fornecedores', authenticate, async (req, res) => {
+    const { nome, razao_social, cnpj, segmento, telefone_comercial, email, endereco, portal_web, status, observacoes } = req.body;
+    
+    console.log('📝 Criando fornecedor:', nome);
+    
+    try {
+        const result = await pool.query(
+            `INSERT INTO fornecedores (nome, razao_social, cnpj, segmento, telefone_comercial, email, endereco, portal_web, status, observacoes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+            [nome, razao_social, cnpj, segmento, telefone_comercial, email, endereco, portal_web, status || 'ativo', observacoes]
+        );
+        
+        console.log('✅ Fornecedor criado:', result.rows[0].id);
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ Erro ao criar fornecedor:', err);
+        res.status(500).json({ error: 'Erro ao criar fornecedor', details: err.message });
+    }
+});
+
+app.put('/api/fornecedores/:id', authenticate, async (req, res) => {
+    const { id } = req.params;
+    const { nome, razao_social, cnpj, segmento, telefone_comercial, email, endereco, portal_web, status, observacoes } = req.body;
+    
+    console.log('📝 Atualizando fornecedor:', id);
+    
+    try {
+        const result = await pool.query(
+            `UPDATE fornecedores 
+             SET nome = $1, razao_social = $2, cnpj = $3, segmento = $4, telefone_comercial = $5, 
+                 email = $6, endereco = $7, portal_web = $8, status = $9, observacoes = $10
+             WHERE id = $11 RETURNING *`,
+            [nome, razao_social, cnpj, segmento, telefone_comercial, email, endereco, portal_web, status, observacoes, id]
+        );
+        
+        console.log('✅ Fornecedor atualizado:', id);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ Erro ao atualizar fornecedor:', err);
+        res.status(500).json({ error: 'Erro ao atualizar fornecedor', details: err.message });
+    }
+});
+
+app.delete('/api/fornecedores/:id', authenticate, async (req, res) => {
+    console.log('🗑️ Deletando fornecedor:', req.params.id);
+    
+    try {
+        await pool.query('DELETE FROM fornecedores WHERE id = $1', [req.params.id]);
+        console.log('✅ Fornecedor deletado');
+        res.json({ message: 'Fornecedor deletado com sucesso' });
+    } catch (err) {
+        console.error('❌ Erro ao deletar fornecedor:', err);
+        res.status(500).json({ error: 'Erro ao deletar fornecedor' });
+    }
+});
+
+// =============================================
+// NOVAS ROTAS: CFTV
+// =============================================
+
+app.get('/api/cftv', authenticate, async (req, res) => {
+    const { loja_id, tecnologia } = req.query;
+    
+    try {
+        let query = `
+            SELECT c.*, l.nome as loja_nome 
+            FROM cftv_dispositivos c 
+            LEFT JOIN lojas l ON c.loja_id = l.id 
+            WHERE 1=1
+        `;
+        let params = [];
+        let paramIndex = 1;
+        
+        if (loja_id) {
+            query += ` AND c.loja_id = $${paramIndex}`;
+            params.push(loja_id);
+            paramIndex++;
+        }
+        
+        if (tecnologia) {
+            query += ` AND c.tecnologia = $${paramIndex}`;
+            params.push(tecnologia);
+            paramIndex++;
+        }
+        
+        query += ' ORDER BY l.nome, c.created_at DESC';
+        
+        const result = await pool.query(query, params);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Erro ao buscar CFTV:', err);
+        res.status(500).json({ error: 'Erro ao buscar dispositivos CFTV' });
+    }
+});
+
+app.get('/api/cftv/:id', authenticate, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT c.*, l.nome as loja_nome 
+             FROM cftv_dispositivos c 
+             LEFT JOIN lojas l ON c.loja_id = l.id 
+             WHERE c.id = $1`,
+            [req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar dispositivo CFTV' });
+    }
+});
+
+app.post('/api/cftv', authenticate, upload.single('foto'), async (req, res) => {
+    const { 
+        loja_id, cp, quantidade_dispositivos, total_canais, canais_em_uso, 
+        tecnologia, marca, modelo, numero_serie, ip_address, ddns, porta_acesso,
+        usuario_acesso, senha_acesso, status, data_instalacao, observacoes 
+    } = req.body;
+    
+    const foto_url = req.file ? `/uploads/${req.file.filename}` : null;
+    
+    console.log('📝 Criando dispositivo CFTV:', { loja_id, tecnologia, marca, modelo });
+    
+    try {
+        const result = await pool.query(
+            `INSERT INTO cftv_dispositivos 
+             (loja_id, cp, quantidade_dispositivos, total_canais, canais_em_uso, tecnologia, marca, modelo, 
+              numero_serie, ip_address, ddns, porta_acesso, usuario_acesso, senha_acesso, 
+              status, data_instalacao, foto_url, observacoes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING *`,
+            [loja_id, cp, quantidade_dispositivos || 1, total_canais, canais_em_uso, tecnologia, marca, modelo,
+             numero_serie, ip_address, ddns, porta_acesso || 8000, usuario_acesso, senha_acesso,
+             status || 'ativo', data_instalacao, foto_url, observacoes]
+        );
+        
+        console.log('✅ Dispositivo CFTV criado:', result.rows[0].id);
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ Erro ao criar dispositivo CFTV:', err);
+        res.status(500).json({ error: 'Erro ao criar dispositivo CFTV', details: err.message });
+    }
+});
+
+app.put('/api/cftv/:id', authenticate, upload.single('foto'), async (req, res) => {
+    const { id } = req.params;
+    const { 
+        loja_id, cp, quantidade_dispositivos, total_canais, canais_em_uso, 
+        tecnologia, marca, modelo, numero_serie, ip_address, ddns, porta_acesso,
+        usuario_acesso, senha_acesso, status, data_instalacao, observacoes 
+    } = req.body;
+    
+    const foto_url = req.file ? `/uploads/${req.file.filename}` : req.body.foto_url;
+    
+    console.log('📝 Atualizando dispositivo CFTV:', id);
+    
+    try {
+        const result = await pool.query(
+            `UPDATE cftv_dispositivos 
+             SET loja_id = $1, cp = $2, quantidade_dispositivos = $3, total_canais = $4, canais_em_uso = $5,
+                 tecnologia = $6, marca = $7, modelo = $8, numero_serie = $9, ip_address = $10, ddns = $11,
+                 porta_acesso = $12, usuario_acesso = $13, senha_acesso = $14, status = $15,
+                 data_instalacao = $16, foto_url = $17, observacoes = $18
+             WHERE id = $19 RETURNING *`,
+            [loja_id, cp, quantidade_dispositivos, total_canais, canais_em_uso, tecnologia, marca, modelo,
+             numero_serie, ip_address, ddns, porta_acesso, usuario_acesso, senha_acesso, status,
+             data_instalacao, foto_url, observacoes, id]
+        );
+        
+        console.log('✅ Dispositivo CFTV atualizado:', id);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ Erro ao atualizar dispositivo CFTV:', err);
+        res.status(500).json({ error: 'Erro ao atualizar dispositivo CFTV', details: err.message });
+    }
+});
+
+app.delete('/api/cftv/:id', authenticate, async (req, res) => {
+    console.log('🗑️ Deletando dispositivo CFTV:', req.params.id);
+    
+    try {
+        await pool.query('DELETE FROM cftv_dispositivos WHERE id = $1', [req.params.id]);
+        console.log('✅ Dispositivo CFTV deletado');
+        res.json({ message: 'Dispositivo CFTV deletado com sucesso' });
+    } catch (err) {
+        console
+        console.error('❌ Erro ao deletar dispositivo CFTV:', err);
+        res.status(500).json({ error: 'Erro ao deletar dispositivo CFTV' });
+    }
+});
+
+// =============================================
 // ROTAS DE FOTOS DA INFRAESTRUTURA
 // =============================================
 
@@ -804,12 +1070,12 @@ app.get('/api/tickets', authenticate, async (req, res) => {
         
         if (loja_id) {
             params.push(loja_id);
-            conditions.push(`t.loja_id = ${params.length}`);
+            conditions.push(`t.loja_id = $${params.length}`);
         }
         
         if (status) {
             params.push(status);
-            conditions.push(`t.status = ${params.length}`);
+            conditions.push(`t.status = $${params.length}`);
         }
         
         if (conditions.length > 0) {
@@ -853,7 +1119,7 @@ app.put('/api/tickets/:id', authenticate, async (req, res) => {
         
         if (status !== undefined) {
             params.push(status);
-            updates.push(`status = ${paramIndex++}`);
+            updates.push(`status = $${paramIndex++}`);
             
             if (status === 'resolvido' || status === 'fechado') {
                 updates.push(`data_resolucao = NOW()`);
@@ -862,21 +1128,21 @@ app.put('/api/tickets/:id', authenticate, async (req, res) => {
         
         if (prioridade !== undefined) {
             params.push(prioridade);
-            updates.push(`prioridade = ${paramIndex++}`);
+            updates.push(`prioridade = $${paramIndex++}`);
         }
         
         if (usuario_responsavel_id !== undefined) {
             params.push(usuario_responsavel_id);
-            updates.push(`usuario_responsavel_id = ${paramIndex++}`);
+            updates.push(`usuario_responsavel_id = $${paramIndex++}`);
         }
         
         if (solucao !== undefined) {
             params.push(solucao);
-            updates.push(`solucao = ${paramIndex++}`);
+            updates.push(`solucao = $${paramIndex++}`);
         }
         
         params.push(id);
-        query += updates.join(', ') + ` WHERE id = ${paramIndex} RETURNING *`;
+        query += updates.join(', ') + ` WHERE id = $${paramIndex} RETURNING *`;
         
         const result = await pool.query(query, params);
         res.json(result.rows[0]);
@@ -933,8 +1199,9 @@ app.get('/api/tickets/:id/comentarios', authenticate, async (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK', 
-        message: 'SFERA TI Backend rodando!',
-        timestamp: new Date().toISOString()
+        message: 'SFERA TI Backend rodando com todas as melhorias!',
+        timestamp: new Date().toISOString(),
+        version: '2.0.0'
     });
 });
 
@@ -945,9 +1212,18 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
     console.log('========================================');
     console.log('🚀 SFERA TI - Backend Iniciado!');
+    console.log('📦 Versão 2.0 com todas as melhorias');
     console.log(`📡 Servidor rodando na porta ${PORT}`);
     console.log(`🌐 API: http://localhost:${PORT}/api`);
     console.log(`💚 Health: http://localhost:${PORT}/api/health`);
+    console.log('========================================');
+    console.log('✅ Novas funcionalidades:');
+    console.log('   • Filtro de franquias nas lojas');
+    console.log('   • Campo propriedade nas impressoras');
+    console.log('   • Campos extras nos links de internet');
+    console.log('   • Módulo completo de Fornecedores');
+    console.log('   • Módulo completo de CFTV (DVR/NVR)');
+    console.log('   • Dashboard atualizado');
     console.log('========================================');
 });
 

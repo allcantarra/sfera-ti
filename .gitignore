@@ -27,5 +27,5 @@ frontend/build/
 database/data/
 
 # Arquivos de configuração do Docker que possam ter dados sensíveis
-# (Use com cuidado. Se não houver segredos, pode comentar esta linha)
-# docker-compose.override.yml
+# (estou comentando pois utilizo o docker como ambiente de testes)
+ docker-compose.yml
