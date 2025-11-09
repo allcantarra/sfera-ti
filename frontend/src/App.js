@@ -13,6 +13,7 @@ import {
   Fornecedores,  // NOVO
   CFTV           // NOVO
 } from './Components';
+import { IAF } from './pages/IAF';
 
 // API_URL sempre relativo - sem porta
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api';
@@ -123,6 +124,7 @@ function App() {
         <Header user={user} currentPage={currentPage} />
         <div className="content-area">
           {currentPage === 'dashboard' && <Dashboard setSelectedLoja={setSelectedLoja} setCurrentPage={setCurrentPage} />}
+          {currentPage === 'iaf' && <IAF />}
           {currentPage === 'lojas' && <Lojas />}
           {currentPage === 'loja-detalhes' && selectedLoja && <LojaDetalhes lojaId={selectedLoja} />}
           {currentPage === 'usuarios' && <Usuarios />}
@@ -146,6 +148,7 @@ function App() {
 function Sidebar({ currentPage, setCurrentPage, user, onLogout }) {
   const menuItems = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+    { id: 'iaf', icon: '📊', label: 'IAF - Inventário' },
     { id: 'lojas', icon: '🏪', label: 'Lojas' },
     { id: 'usuarios', icon: '👥', label: 'Usuários' },
     { id: 'computadores', icon: '💻', label: 'Computadores' },
@@ -189,6 +192,7 @@ function Sidebar({ currentPage, setCurrentPage, user, onLogout }) {
 function Header({ user, currentPage }) {
   const titles = {
     dashboard: 'Dashboard Geral',
+    iaf: 'IAF - Inventário e Alertas de Frota',
     lojas: 'Gerenciar Lojas',
     usuarios: 'Gerenciar Usuários',
     computadores: 'Computadores',

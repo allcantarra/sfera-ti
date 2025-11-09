@@ -2,20 +2,15 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copiar package.json
 COPY package*.json ./
 
-# Instalar dependências
-RUN npm install
+RUN npm ci --only=production
 
-# Copiar código fonte
-COPY . .
+COPY server.js ./
+COPY routes ./routes
 
-# Criar pasta de uploads
 RUN mkdir -p uploads
 
-# Expor porta
 EXPOSE 3000
 
-# Comando para iniciar
 CMD ["npm", "start"]

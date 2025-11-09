@@ -78,6 +78,13 @@ const authenticate = (req, res, next) => {
 };
 
 // =============================================
+// ROTAS IAF - IMPORTAR DEPOIS DE DEFINIR pool e authenticate
+// =============================================
+const { router: iafRoutes, initialize: initializeIAF } = require('./routes/iaf');
+initializeIAF(pool, authenticate);
+app.use('/api/iaf', iafRoutes);
+
+// =============================================
 // ROTAS DE AUTENTICAÇÃO
 // =============================================
 
@@ -109,7 +116,6 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
         
-        // Atualizar último acesso
         await pool.query('UPDATE usuarios SET ultimo_acesso = NOW() WHERE id = $1', [user.id]);
         
         const token = jwt.sign(
@@ -149,7 +155,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // =============================================
-// ROTAS DE DASHBOARD - ATUALIZADA
+// ROTAS DE DASHBOARD
 // =============================================
 
 app.get('/api/dashboard/geral', authenticate, async (req, res) => {
@@ -236,7 +242,7 @@ app.get('/api/dashboard/loja/:id', authenticate, async (req, res) => {
 });
 
 // =============================================
-// ROTAS DE LOJAS - ATUALIZADA COM FILTRO DE FRANQUIA
+// ROTAS DE LOJAS
 // =============================================
 
 app.get('/api/lojas', authenticate, async (req, res) => {
@@ -453,7 +459,7 @@ app.delete('/api/computadores/:id', authenticate, async (req, res) => {
 });
 
 // =============================================
-// ROTAS DE IMPRESSORAS - ATUALIZADA COM PROPRIEDADE
+// ROTAS DE IMPRESSORAS
 // =============================================
 
 app.get('/api/impressoras', authenticate, async (req, res) => {
@@ -599,7 +605,7 @@ app.delete('/api/celulares/:id', authenticate, async (req, res) => {
 });
 
 // =============================================
-// ROTAS DE LINKS DE INTERNET - ATUALIZADA COM NOVOS CAMPOS
+// ROTAS DE LINKS DE INTERNET
 // =============================================
 
 app.get('/api/links', authenticate, async (req, res) => {
@@ -618,8 +624,6 @@ app.get('/api/links', authenticate, async (req, res) => {
 });
 
 app.post('/api/links', authenticate, async (req, res) => {
-    console.log('📝 Recebendo dados para criar link:', req.body);
-    
     const { 
         loja_id, nome, cp, titular, cnpj_titular, operadora, tipo_conexao, 
         velocidade_download, velocidade_upload, numero_contrato, valor_mensal, valor_anual,
@@ -650,14 +654,12 @@ app.post('/api/links', authenticate, async (req, res) => {
              status || 'ativo', principal || false, observacoes]
         );
         
-        console.log('✅ Link criado com sucesso:', result.rows[0].id);
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error('❌ Erro ao criar link:', err);
+        console.error('Erro ao criar link:', err);
         res.status(500).json({ 
             error: 'Erro ao criar link',
-            message: err.message,
-            details: err.detail
+            message: err.message
         });
     }
 });
@@ -778,7 +780,7 @@ app.delete('/api/equipamentos-rede/:id', authenticate, async (req, res) => {
 });
 
 // =============================================
-// NOVAS ROTAS: FORNECEDORES
+// ROTAS DE FORNECEDORES
 // =============================================
 
 app.get('/api/fornecedores', authenticate, async (req, res) => {
@@ -877,7 +879,7 @@ app.delete('/api/fornecedores/:id', authenticate, async (req, res) => {
 });
 
 // =============================================
-// NOVAS ROTAS: CFTV
+// ROTAS DE CFTV
 // =============================================
 
 app.get('/api/cftv', authenticate, async (req, res) => {
@@ -1002,7 +1004,6 @@ app.delete('/api/cftv/:id', authenticate, async (req, res) => {
         console.log('✅ Dispositivo CFTV deletado');
         res.json({ message: 'Dispositivo CFTV deletado com sucesso' });
     } catch (err) {
-        console
         console.error('❌ Erro ao deletar dispositivo CFTV:', err);
         res.status(500).json({ error: 'Erro ao deletar dispositivo CFTV' });
     }
@@ -1199,9 +1200,14 @@ app.get('/api/tickets/:id/comentarios', authenticate, async (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK', 
-        message: 'SFERA TI Backend rodando com todas as melhorias!',
+        message: 'SFERA TI Backend rodando - VERSÃO COMPLETA com IAF!',
         timestamp: new Date().toISOString(),
-        version: '2.0.0'
+        version: '3.0.0',
+        modules: {
+            core: 'OK',
+            iaf: 'OK',
+            database: 'OK'
+        }
     });
 });
 
@@ -1212,22 +1218,33 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
     console.log('========================================');
     console.log('🚀 SFERA TI - Backend Iniciado!');
-    console.log('📦 Versão 2.0 com todas as melhorias');
+    console.log('📦 Versão 3.0 - COMPLETO com IAF');
     console.log(`📡 Servidor rodando na porta ${PORT}`);
     console.log(`🌐 API: http://localhost:${PORT}/api`);
     console.log(`💚 Health: http://localhost:${PORT}/api/health`);
     console.log('========================================');
-    console.log('✅ Novas funcionalidades:');
-    console.log('   • Filtro de franquias nas lojas');
-    console.log('   • Campo propriedade nas impressoras');
-    console.log('   • Campos extras nos links de internet');
-    console.log('   • Módulo completo de Fornecedores');
-    console.log('   • Módulo completo de CFTV (DVR/NVR)');
-    console.log('   • Dashboard atualizado');
+    console.log('✅ Módulos disponíveis:');
+    console.log('   • Sistema Principal');
+    console.log('   • Fornecedores');
+    console.log('   • CFTV (DVR/NVR)');
+    console.log('   • IAF - Inventário e Alertas de Frota');
+    console.log('   • Dashboard Completo');
+    console.log('   • Sistema de Tickets');
     console.log('========================================');
 });
 
 // Tratamento de erros não capturados
 process.on('unhandledRejection', (err) => {
     console.error('❌ Erro não tratado:', err);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('🛑 SIGTERM recebido. Encerrando servidor...');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('🛑 SIGINT recebido. Encerrando servidor...');
+    process.exit(0);
 });
