@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
-      - ./database/iaf-tables.sql:/docker-entrypoint-initdb.d/02-iaf-tables.sql # <--- ADICIONE ESTA LINHA
+      - ./database/iaf-tables.sql:/docker-entrypoint-initdb.d/02-iaf-tables.sql
     ports:
       - "5432:5432"
     healthcheck:
@@ -80,7 +80,7 @@ services:
     networks:
       - triloga_network
 
-    # Frontend React
+  # Frontend React
   frontend:
     build:
       context: ./frontend
@@ -92,8 +92,8 @@ services:
     restart: unless-stopped
     ports:
       - "3001:80"
-    volumes:
-      - ./nginx/upload.conf:/etc/nginx/conf.d/upload.conf # <--- Mude para esta linha
+    # ✅ LINHA PROBLEMÁTICA REMOVIDA!
+    # Não precisa mais desta linha pois o nginx.conf do frontend já tem as configurações
     depends_on:
       - backend
     networks:

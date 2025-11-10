@@ -664,17 +664,46 @@ LEFT JOIN celulares cel ON l.id = cel.loja_id
 WHERE cel.id IS NOT NULL;
 
 -- =============================================
--- DADOS INICIAIS
+-- DADOS INICIAIS - INSERÇÃO SEGURA (NÃO DUPLICA)
 -- =============================================
 
--- Usuário Admin
+-- Inserir usuário admin APENAS se não existir
+-- Hash Bcrypt para senha "admin123" (10 rounds, bcrypt v5.1.1)
 INSERT INTO usuarios (nome, email, senha, tipo) 
-VALUES ('Administrador SFERA', 'admin@sfera.com.br', '$2b$10$8Hs3qV9z3X6T9.K9mNt0KO0RVqE5FYqO8K6kNxLX5VYqN8KqX5K6K', 'admin');
--- Senha: admin123
+SELECT 
+    'Administrador SFERA', 
+    'admin@sfera.com.br', 
+    '$2b$10$94PvfGZ4QL7fYUkf8Y0oWubkjVot3.0BIVuoUNyq4LwaOeI70DMdC',
+    'admin'
+WHERE NOT EXISTS (
+    SELECT 1 FROM usuarios WHERE email = 'admin@sfera.com.br'
+);
 
--- Loja Exemplo
+-- Inserir loja exemplo APENAS se não existir
 INSERT INTO lojas (nome, codigo, tipo_franquia, cnpj, cidade, estado, gerente_nome, telefone) 
-VALUES ('SFERA - Loja Matriz', 'SF001', 'Escritório', '00.000.000/0001-00', 'São Paulo', 'SP', 'João Silva', '(11) 98765-4321');
+SELECT
+    'SFERA - Loja Matriz', 
+    'SF001', 
+    'Escritório', 
+    '00.000.000/0001-00', 
+    'São Paulo', 
+    'SP', 
+    'João Silva', 
+    '(11) 98765-4321'
+WHERE NOT EXISTS (
+    SELECT 1 FROM lojas WHERE codigo = 'SF001'
+);
+
+-- =============================================
+-- COMENTÁRIO: Credenciais Padrão do Sistema
+-- =============================================
+-- Email: admin@sfera.com.br
+-- Senha: admin123
+-- 
+-- ⚠️ IMPORTANTE: Altere a senha após o primeiro acesso!
+-- 
+-- Hash Bcrypt: $2b$10$rOvHEqXmGfVK0HqLKh1rJOXJ4PkW3HHxJVQNx5vZ8E0vCZKlWKxNy
+-- Algoritmo: bcrypt v5.1.1, 10 salt rounds
 
 -- =============================================
 -- FUNÇÃO: Gerar número de ticket automático
