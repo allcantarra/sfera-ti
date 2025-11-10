@@ -214,6 +214,11 @@ router.post('/upload-celulares', (req, res, next) => {
                             const celular = row['Celular'];
                             const modelo = row['Modelo'];
                             const modeloDetalhado = row['Modelo Detalhado'];
+                             console.log('📱 Dados da linha:', {celular,
+                               terminoGarantiaRAW: row['Término Garantia'],
+                               terminoGarantiaTYPE: typeof row['Término Garantia']
+                             });
+
                             const terminoGarantia = parseExcelDate(row['Término Garantia']);
                             const status = row['Status']?.toLowerCase() || 'ativo';
                             
